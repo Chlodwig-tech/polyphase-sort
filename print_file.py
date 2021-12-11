@@ -51,6 +51,4 @@ if __name__=='__main__':
         print(l3[i],l[i])
 
     if l==l2:
-        print('xd',len(l))
-    else:
-        print('no')
+        print('Sorted',len(l))

@@ -1,14 +1,15 @@
 import sys
 import os
+import print_file
 
 class PolyphaseSort:
 
-    def __init__(self,page_size,source,sort_ascending=True):
+    def __init__(self,page_size,source,destination,debug=False,sort_ascending=True):
         self.number_of_reads=0
         self.number_of_writes=0
         self.number_of_phases=0
+        self.number_of_runs=0
         self.fib_list=[1,1]
-        self.end=0
 
         self.page_generators={}
         self.records_generators={}
@@ -16,15 +17,21 @@ class PolyphaseSort:
         
         self.page_size=page_size
         self.source=source
+        self.destination=destination
         self.stop=False
+        self.debug=debug
         self.sort_ascending=sort_ascending
 
         self.page_generators[source]=None
+
+        self.sorted=False
 
         for i in range(3):
             self.tapes[f'tapes/tape{i+1}.dat']=''
             self.page_generators[f'tapes/tape{i+1}.dat']=None
             self.records_generators[f'tapes/tape{i+1}.dat']=None
+
+        self.t1,self.t2,self.r1,self.r2=None,None,None,None
 
     def get_10_more_fib_numbers(self):
         for _ in range(10):
@@ -60,8 +67,7 @@ class PolyphaseSort:
 
     def get_record(self,path):
         try:
-            record=next(self.records_generators[path])
-            return record
+            return next(self.records_generators[path])
         except:
             self.records_generators[path]=self.get_records(path)
             if self.stop:
@@ -158,6 +164,19 @@ class PolyphaseSort:
         else:
             len2+=1
 
+        if self.debug:
+            print('After distribution:')
+            print_file.print_file('tapes/tape1.dat',self.page_size)
+            for value,elem in zip(print_file.l,print_file.l3):
+                print(elem,value)
+            print_file.l,print_file.l3=[],[]
+            print('---------')
+            print_file.print_file('tapes/tape2.dat',self.page_size)
+            for value,elem in zip(print_file.l,print_file.l3):
+                print(elem,value)
+            print_file.l,print_file.l3=[],[]
+            print('-------------------------')
+
         return len1,len2,index
 
     def first_merge(self,path,n):
@@ -181,23 +200,32 @@ class PolyphaseSort:
             return record
         return None
 
-    def merge(self,t1,t2,record1,record2,exx=False):
-        print('n: ',self.number_of_phases)
+    def merge(self):
         self.number_of_phases+=1
         
-        
-        r1_tape,r2_tape=f'tapes/tape{t1}.dat',f'tapes/tape{t2}.dat'
-        w1=1 if (t1==2 and t2==3) or (t1==3 and t2==2) else 2 if (t1==1 and t2==3) or (t1==3 and t2==1) else 3
+        r1_tape,r2_tape=f'tapes/tape{self.t1}.dat',f'tapes/tape{self.t2}.dat'
+        w1=1 if (self.t1==2 and self.t2==3) or (self.t1==3 and self.t2==2) else 2 if (self.t1==1 and self.t2==3) or (self.t1==3 and self.t2==1) else 3
         w_tape=f'tapes/tape{w1}.dat'
 
-        if not exx:
-            if not record1 and not record2:
-                self.number_of_phases-=1
-                if os.stat(r1_tape).st_size==os.stat(self.source).st_size:
-                    print(r1_tape)
+        record1,record2=self.r1,self.r2
+
+        if not record1 and not record2 and self.dummy_series:
+            self.sorted=True
+            self.number_of_phases-=1
+            if os.stat(r1_tape).st_size==os.stat(self.source).st_size:
+                if os.name=='nt':
+                    os.system(f'copy {r1_tape} {self.destination}')
                 else:
-                    print(r2_tape)
-                return
+                    os.system(f'cp {r1_tape} {self.destination}')
+            else:
+                if os.name=='nt':
+                    os.system(f'copy {r2_tape} {self.destination}')
+                else:
+                    os.system(f'cp {r2_tape} {self.destination}')
+            return
+        
+        if not self.dummy_series:
+            self.dummy_series=True
 
         self.init_generator(r1_tape)
         self.init_generator(r2_tape)
@@ -205,8 +233,6 @@ class PolyphaseSort:
         pv1,pv2=None,None
         r1,r2=True,True
         x1,x2=False,False
-
-        nnn=0
 
         if record1:
             r1=False
@@ -224,7 +250,6 @@ class PolyphaseSort:
                     v1=self.get_value(record1)
                     r1=False
                     if self.cmp_values(v1,pv1):
-                        nnn+=1
                         while True:
                             if record2:
                                 if self.cmp_values(v2,pv2):
@@ -250,7 +275,6 @@ class PolyphaseSort:
                     v2=self.get_value(record2)
                     r2=False
                     if self.cmp_values(v2,pv2):
-                        nnn+=1
                         while True:
                             if record1:
                                 if self.cmp_values(v1,pv1):
@@ -277,9 +301,6 @@ class PolyphaseSort:
             else:
                 self.save_record(w_tape,record2)
                 r2=True
-        
-        
-        #print(f'nnn: {nnn}')
 
         if record1:
             while True:
@@ -296,9 +317,23 @@ class PolyphaseSort:
                 else:
                     break
             self.save(w_tape)
+
+            if self.debug:
+                print(f'After {self.number_of_phases} merge:')
+                print_file.print_file(r1_tape,self.page_size)
+                for value,elem in zip(print_file.l,print_file.l3):
+                    print(elem,value)
+                print_file.l,print_file.l3=[],[]
+                print('---------')
+                print_file.print_file(w_tape,self.page_size)
+                for value,elem in zip(print_file.l,print_file.l3):
+                    print(elem,value)
+                print_file.l,print_file.l3=[],[]
+                print('-------------------------')
+
             self.page_generators[r2_tape]=None
             open(r2_tape,'w').close()
-            self.merge(t1,w1,record1,None)
+            self.t1,self.t2,self.r1,self.r2=self.t1,w1,record1,None
         else:
             while True:
                 if record2:
@@ -314,11 +349,30 @@ class PolyphaseSort:
                 else:
                     break
             self.save(w_tape)
+            if self.debug:
+                print(f'After {self.number_of_phases} merge:')
+                print_file.print_file(r2_tape,self.page_size)
+                for value,elem in zip(print_file.l,print_file.l3):
+                    print(elem,value)
+                print_file.l,print_file.l3=[],[]
+                print('---------')
+                print_file.print_file(w_tape,self.page_size)
+                for value,elem in zip(print_file.l,print_file.l3):
+                    print(elem,value)
+                print_file.l,print_file.l3=[],[]
+                print('-------------------------')
             self.page_generators[r1_tape]=None
             open(r1_tape,'w').close()
-            self.merge(w1,t2,None,record2)
+            self.t1,self.t2,self.r1,self.r2=w1,self.t2,None,record2
 
     def sort(self):
+
+        for key in self.page_generators:
+            self.page_generators[key]=None
+        for key in self.records_generators:
+            self.records_generators[key]=None
+        for key in self.tapes:
+            self.tapes[key]=''
 
         open('tapes/tape1.dat','w').close()
         open('tapes/tape2.dat','w').close()
@@ -327,54 +381,35 @@ class PolyphaseSort:
         self.number_of_reads=0
         self.number_of_writes=0
         self.number_of_phases=0
+        self.sorted=False
 
         l1,l2,index=self.distribution()
-        self.end=index
 
-        print(l1,l2,self.fib_list[index])
-
-        #record=self.first_merge('tapes/tape1.dat',self.fib_list[index]-l1)
+        self.number_of_runs=l1+l2
+        x=0
+        record1,record2=None,None
+        self.dummy_series=True
 
         if l1 in self.fib_list and l2 in self.fib_list:
-            print('xx')
-            self.merge(1,2,None,None,True)
+            self. dummy_series=False
         elif l1 in self.fib_list:
-            record=self.first_merge('tapes/tape1.dat',self.fib_list[index]-l2)
-            self.merge(1,2,record,None)
-            pass
+            self.r1=self.first_merge('tapes/tape1.dat',self.fib_list[index]-l2)
+            x=self.fib_list[index]-l2
         elif l2 in self.fib_list:
-            record=self.first_merge('tapes/tape2.dat',self.fib_list[index]-l1)
-            self.merge(1,2,None,record)
+            self.r2=self.first_merge('tapes/tape2.dat',self.fib_list[index]-l1)
+            x=self.fib_list[index]-l1
+
+        self.t1,self.t2=1,2
         
-        else:
-            print('-----------------------------')
-            if l1>l2:
-                print('l1>l2')
-                record=self.first_merge('tapes/tape2.dat',self.fib_list[index]-l1)
-                if not record:
-                    record=self.get_record('tapes/tape1.dat')
-                if not record:
-                    self.merge(1,2,None,None,True)
-                else:
-                    self.merge(1,2,None,record)
+        while not self.sorted:
+            self.merge()
 
-            else:
-                print('l1<l2')
-                record=self.first_merge('tapes/tape1.dat',self.fib_list[index]-l2)
-                if not record:
-                    record=self.get_record('tapes/tape2.dat')
-                if not record:
-                    self.merge(1,2,None,None,True)
-                else:
-                    self.merge(1,2,record,None)
-        
-
-
+        print(f'Number of runs: {self.number_of_runs}({x}) | {l1}-{l2}')
+        print(f'Number of reads: {self.number_of_reads}')
+        print(f'Number of writes: {self.number_of_writes}')
+        print(f'Number of phases: {self.number_of_phases}')
 
 if __name__=='__main__':
     
-    p=PolyphaseSort(1024,'data/source.dat')
+    p=PolyphaseSort(1024,'data/source.dat','data/destination.dat')
     p.sort()
-    print(p.number_of_phases)
-    print(p.number_of_reads)
-    print(p.number_of_writes)
