@@ -1,6 +1,7 @@
 from random import randint
 import sys
 
+#generating records
 def generate_records(path,number_of_records):
     with open(path,'wb') as file:
         data=''
