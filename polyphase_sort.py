@@ -166,11 +166,13 @@ class PolyphaseSort:
 
         if self.debug:
             print('After distribution:')
+            print('tapes/tape1.dat')
             print_file.print_file('tapes/tape1.dat',self.page_size)
             for value,elem in zip(print_file.l,print_file.l3):
                 print(elem,value)
             print_file.l,print_file.l3=[],[]
             print('---------')
+            print('tapes/tape2.dat')
             print_file.print_file('tapes/tape2.dat',self.page_size)
             for value,elem in zip(print_file.l,print_file.l3):
                 print(elem,value)
@@ -320,11 +322,13 @@ class PolyphaseSort:
 
             if self.debug:
                 print(f'After {self.number_of_phases} merge:')
+                print(r1_tape)
                 print_file.print_file(r1_tape,self.page_size)
                 for value,elem in zip(print_file.l,print_file.l3):
                     print(elem,value)
                 print_file.l,print_file.l3=[],[]
                 print('---------')
+                print(w_tape)
                 print_file.print_file(w_tape,self.page_size)
                 for value,elem in zip(print_file.l,print_file.l3):
                     print(elem,value)
@@ -351,11 +355,13 @@ class PolyphaseSort:
             self.save(w_tape)
             if self.debug:
                 print(f'After {self.number_of_phases} merge:')
+                print(r2_tape)
                 print_file.print_file(r2_tape,self.page_size)
                 for value,elem in zip(print_file.l,print_file.l3):
                     print(elem,value)
                 print_file.l,print_file.l3=[],[]
                 print('---------')
+                print(w_tape)
                 print_file.print_file(w_tape,self.page_size)
                 for value,elem in zip(print_file.l,print_file.l3):
                     print(elem,value)
